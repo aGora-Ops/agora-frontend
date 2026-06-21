@@ -4,7 +4,8 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, ExternalLink, Bot, AlertCircle, GitBranch, Clock, Hash } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { fetchRun, fetchRemediations } from '@/lib/api'
+import { useState } from 'react'
+import { fetchRun, fetchRemediations, fetchRunLogs } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -28,6 +29,17 @@ export default function RunDetailPage() {
   const relatedRemediation = remediations.find(
     (r) => run && r.workflow_run_id === run.id
   )
+
+  const [showLogs, setShowLogs] = useState(false)
+  const {
+    data: logs,
+    isLoading: logsLoading,
+    error: logsError,
+  } = useQuery({
+    queryKey: ['run-logs', runId],
+    queryFn: () => fetchRunLogs(runId),
+    enabled: showLogs && Boolean(runId),
+  })
 
   const displayStatus =
     run?.status === 'completed' ? (run.conclusion ?? 'neutral') : run?.status ?? 'queued'
@@ -176,26 +188,51 @@ export default function RunDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Steps placeholder */}
+          {/* Workflow Logs */}
           <Card>
             <CardHeader>
-              <CardTitle>Steps</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Workflow Logs</CardTitle>
+                {!showLogs && (
+                  <button
+                    onClick={() => setShowLogs(true)}
+                    className="text-xs font-semibold text-amber-600 hover:text-amber-700"
+                  >
+                    Load logs
+                  </button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8">
-                <p className="text-sm text-zinc-400">
-                  Step-level details are available on{' '}
-                  <a
-                    href={run.html_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-amber-600 hover:text-amber-700 font-medium"
-                  >
-                    GitHub Actions
-                  </a>
-                  .
-                </p>
-              </div>
+              {!showLogs ? (
+                <div className="text-center py-8">
+                  <p className="text-sm text-zinc-400">
+                    Click <span className="font-semibold text-zinc-600">Load logs</span> to
+                    fetch the workflow output from GitHub (secrets are automatically redacted).
+                  </p>
+                </div>
+              ) : logsLoading ? (
+                <div className="space-y-2 py-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-5/6" />
+                  <Skeleton className="h-4 w-4/6" />
+                  <p className="text-xs text-zinc-400 pt-2">
+                    Fetching logs from GitHub…
+                  </p>
+                </div>
+              ) : logsError ? (
+                <div className="flex items-center gap-2 text-rose-600 bg-rose-50 border border-rose-200 rounded-md p-3">
+                  <AlertCircle size={16} />
+                  <p className="text-xs font-medium">
+                    Could not load logs. They may have expired (GitHub retains logs ~90 days),
+                    or this run has no downloadable logs.
+                  </p>
+                </div>
+              ) : (
+                <pre className="bg-zinc-900 text-zinc-100 text-xs font-mono rounded-md p-4 overflow-x-auto max-h-[500px] overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                  {logs || 'No log output.'}
+                </pre>
+              )}
             </CardContent>
           </Card>
         </div>

@@ -104,6 +104,11 @@ export async function fetchRun(runId: string): Promise<WorkflowRun> {
   return data
 }
 
+export async function fetchRunLogs(runId: string): Promise<string> {
+  const { data } = await api.get<{ logs: string }>(`/api/v1/runs/${runId}/logs`)
+  return data.logs
+}
+
 export async function fetchRemediations(): Promise<Remediation[]> {
   const { data } = await api.get<{ remediations: Remediation[]; total: number }>(
     '/api/v1/remediations/'
